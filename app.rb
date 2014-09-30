@@ -1,8 +1,12 @@
 require 'sinatra'
 require 'sinatra/activerecord'
 
-class CreateSubmissionTable < ActiveRecord::Migration
-  def self.change
+set :database, 'sqlite3:app.db'
+
+class Migration < ActiveRecord::Migration
+  def self.migrate!
+    return if already_run?
+
     create_table :submissions do |t|
       t.integer :votes, null: false, default: 0
       t.integer :score, null: false, default: 0
@@ -11,17 +15,18 @@ class CreateSubmissionTable < ActiveRecord::Migration
       t.timestamps
     end
   end
+
+  def self.already_run?
+    ActiveRecord::Base.connection.table_exists? :submissions
+  end
 end
 
-ActiveRecord::Base.establish_connection adapter: 'sqlite3', database: 'app.db'
-CreateSubmissionTable.change unless ActiveRecord::Base.connection.table_exists? :submissions
+Migration.migrate!
 
 class Submission < ActiveRecord::Base
   GRAVITY = 1.8
 
-  scope :by_score_descending, -> { order('score desc') }
-
-  validates_presence_of :title, :url
+  default_scope { order('score desc') }
 
   def age
     (DateTime.now.to_i - self.created_at.to_i) / 60 / 60
@@ -44,13 +49,12 @@ class Submission < ActiveRecord::Base
 end
 
 get '/' do
-  @submissions = Submission.by_score_descending
+  @submissions = Submission.all
   erb :index
 end
 
 get '/upvote/:id' do
-  submission = Submission.find(params[:id])
-  submission.upvote!
+  Submission.find(params[:id]).upvote!
   redirect '/'
 end
 
@@ -59,10 +63,7 @@ get '/new' do
 end
 
 post '/create' do
-  submission = Submission.new
-  submission.title = params[:title]
-  submission.url = params[:url]
-  submission.save
+  Submission.create(params)
   redirect '/'
 end
 
