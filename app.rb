@@ -23,6 +23,8 @@ end
 
 Migration.migrate!
 
+set :bind, '0.0.0.0'
+
 class Submission < ActiveRecord::Base
   GRAVITY = 1.8
 
